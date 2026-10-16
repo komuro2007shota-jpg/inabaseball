@@ -27,3 +27,8 @@ node --test tests/record.test.js
 塁打数未満の進塁など、実際の状況への詳細訂正は今後対応。
 イニング別得点を集計し、延長回も表示。
 ブラウザのデータ削除に備えてJSONを書き出してください。JSON再読込は未実装。
+
+## GitHub Pages
+リポジトリの Settings → Pages → Build and deployment → Source を
+**GitHub Actions** に設定してください。mainへのpushでテスト・ビルド後、distを公開します。
+アセットは相対パスのため `/inabaseball/` 配下でも読み込めます。
