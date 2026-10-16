@@ -172,3 +172,38 @@ run("var updatedHands=structuredClone(legacyHands);updatedHands.players[0].bats=
 assert.equal(run('rosterAt(0).players[0].bats'),'左');
 assert.equal(run('rosterAt(0,0).players[0].bats'),'両');
 console.log('PASS: 投打表示・旧データ不明・印刷・未変更判定・交代前後の利き打ち保持');
+
+// 犠打・犠飛・野選・併殺と打席に紐付く進塁
+run("data.events=[];result='安打';recordPitch();result='犠打';recordPitch()");
+assert.equal(run('state().o'),1);
+assert.equal(run('state().bases[1]'),1);
+assert.equal(run('scorebookEntries()[0][0].reached'),2);
+assert.equal(run('scorebookEntries()[0][1].result'),'犠打');
+run("data.events=[];result='三塁打';recordPitch();result='犠飛';recordPitch()");
+assert.equal(run('state().runs[0]'),1);
+assert.equal(run('scorebookEntries()[0][0].scored'),true);
+assert.equal(run('scorebookEntries()[0][1].out'),true);
+run("data.events=[];result='安打';recordPitch();result='野選';recordPitch()");
+assert.equal(run('state().o'),1);
+assert.equal(run('state().bases[0]'),2);
+assert.equal(run('scorebookEntries()[0][0].out'),true);
+run("data.events=[];result='安打';recordPitch();result='併殺';recordPitch()");
+assert.equal(run('state().o'),2);
+assert.equal(run('state().bases.filter(x=>x!==null).length'),0);
+assert.equal(run('scorebookEntries()[0].filter(e=>e.out).length'),2);
+assert.ok(run("validateResult({...state(),o:0},[{from:-1,batter:3,to:'out'}],'併殺')"));
+assert.ok(run("validateResult({...state(),o:2},[{from:-1,batter:3,to:'out'},{from:2,batter:1,to:'home'}],'犠飛')"));
+// 打者一巡、残塁、投球履歴、守備表記、第三アウト時の無得点
+run("data.events=[];result='安打';for(let i=0;i<10;i++)recordPitch()");
+assert.equal(run('scorebookEntries()[0].filter(e=>e.order===1&&e.inning===1).length'),2);
+run("data.events=[];result='ボール';for(let i=0;i<4;i++)recordPitch();result='アウト';for(let i=0;i<3;i++)recordPitch()");
+assert.equal(run('scorebookEntries()[0][0].result'),'四球');
+assert.equal(run('scorebookEntries()[0][0].pitches.length'),4);
+assert.equal(run('scorebookEntries()[0][0].stranded'),true);
+run("data.events=[];result='三塁打';recordPitch();result='アウト';recordPitch();recordPitch();document.querySelector('#add').onclick();pending.moves[1].to='home';document.querySelector('#count-runs').checked=false;document.querySelector('#defense-record').value='6-4-3';document.querySelector('#confirm-play').onsubmit({preventDefault(){}})");
+assert.equal(run('scorebookEntries()[0][0].scored'),false);
+assert.equal(run('scorebookEntries()[0][0].noRun'),true);
+assert.ok(run('sheet()').includes('6-4-3'));
+assert.ok(run('sheet()').includes('score-diamond'));
+assert.ok(run('sheet()').includes('生還・無得点'));
+console.log('PASS: 犠打・犠飛・野選・併殺・打者一巡・進塁紐付け・残塁・守備表記・スコアブック');
