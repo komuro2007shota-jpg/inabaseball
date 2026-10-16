@@ -58,3 +58,62 @@ test('選択中の試合を削除したら残りの試合に切り替える',()=
  assert.equal(b.run('data.id'),a.run('originalId'));
  assert.equal(b.run('library.games.length'),1);
 });
+
+test('単独JSONの確認・別試合追加・元試合保持',()=>{
+ const a=app({'ina-baseball-v1':JSON.stringify(legacy)});
+ a.context.importText=JSON.stringify(legacy);
+ const before=a.storage.get('ina-baseball-v2');
+ a.run("var preview=prepareImport(importText,'one.json')");
+ assert.equal(a.run('preview.items[0].matches.length'),1);
+ assert.equal(a.storage.get('ina-baseball-v2'),before);
+ assert.equal(a.run('commitImport(preview)'),1);
+ assert.equal(a.run('library.games.length'),2);
+ assert.notEqual(a.run('library.games[0].id'),a.run('library.games[1].id'));
+ assert.equal(a.run('library.games[0].events.length'),1);
+});
+test('同じIDの試合を選択して上書きし、他試合を保持',()=>{
+ const a=app({'ina-baseball-v1':JSON.stringify(legacy)});
+ a.run("var exported=structuredClone(data);exported.events.push({...exported.events[0]});var oldId=data.id;data={...structuredClone(data),id:newGameId(),home:'他校'};save();var otherId=data.id;var otherBefore=JSON.stringify(data);var preview=prepareImport(JSON.stringify(exported),'one.json');preview.items[0].action='replace';commitImport(preview)");
+ assert.equal(a.run('library.games.length'),2);
+ assert.equal(a.run('library.games.find(g=>g.id===oldId).events.length'),2);
+ assert.equal(a.run('JSON.stringify(library.games.find(g=>g.id===otherId))'),a.run('otherBefore'));
+});
+test('全試合JSONを復元し、不要な試合は読み込まない',()=>{
+ const a=app({'ina-baseball-v1':JSON.stringify({deleted:true,events:[]})});
+ a.context.importText=JSON.stringify({version:2,games:[{...legacy,id:'import-a'},{...legacy,id:'import-b',home:'別校'}]});
+ a.run("var preview=prepareImport(importText,'all.json');preview.items[1].action='skip';commitImport(preview)");
+ assert.equal(a.run('library.games.length'),1);
+ assert.equal(a.run('data.id'),'import-a');
+ assert.equal(a.run('state().b'),1);
+ const b=app(Object.fromEntries(a.storage));assert.equal(b.run('data.id'),'import-a');
+});
+test('不正なJSON・位置・走者・重複IDを拒否し、既存記録を変えない',()=>{
+ const a=app({'ina-baseball-v1':JSON.stringify(legacy)}),before=a.storage.get('ina-baseball-v2');
+ for(const input of ['{broken',JSON.stringify({...legacy,events:[{...legacy.events[0],coursePoint:{x:'bad',y:0}}]}),JSON.stringify({...legacy,events:[{pitch:'ストレート',result:'安打',play:{moves:[{from:-1,batter:9,to:'0'}]}}]}),JSON.stringify({version:2,games:[{...legacy,id:'dup'},{...legacy,id:'dup'}]})]){
+  a.context.importText=input;assert.throws(()=>a.run('prepareImport(importText,"bad.json")'));assert.equal(a.storage.get('ina-baseball-v2'),before);
+ }
+ assert.equal(a.run('data.home'),'後攻校');
+});
+test('保存失敗時には全試合と選択状態を維持する',()=>{
+ const a=app({'ina-baseball-v1':JSON.stringify(legacy)});
+ a.context.importText=JSON.stringify(legacy);a.run('var preview=prepareImport(importText,"one.json");var original=JSON.stringify(library);var originalId=data.id');
+ a.context.localStorage.setItem=()=>{throw new Error('保存容量が足りません')};
+ assert.throws(()=>a.run('commitImport(preview)'),/保存容量/);
+ assert.equal(a.run('JSON.stringify(library)'),a.run('original'));
+ assert.equal(a.run('data.id'),a.run('originalId'));
+});
+test('スタメン・DH・交代・走者付きの書き出しを読み戻せる',()=>{
+ const a=app({'ina-baseball-v1':JSON.stringify(legacy)});
+ a.run("data.events=[];data.lineups=emptyLineups();data.lineups.forEach((t,h)=>t.forEach((p,i)=>{p.name='選手'+h+i;p.number=String(i+1);p.throws='右';p.bats='左'}));data.dh=[false,true];data.lineups[1][0].position='DH';data.pitchers=[{name:'',number:''},{name:'先発P',number:'10'}];var beforeSub=rosterAt(1);var afterSub=structuredClone(beforeSub);afterSub.pitcher={name:'救援P',number:'11'};data.events=[{pitch:'カーブ',result:'安打',inning:1,half:0,batter:1,coursePoint:{x:.4,y:.3},point:{x:80,y:90},kind:'ゴロ',play:{moves:[{from:-1,batter:1,to:'0'}],countRuns:false}},{substitution:{team:1,before:beforeSub,after:afterSub,detail:'投手交代'},result:'投手交代',inning:1,half:0,batter:2}];save();var parsed=parseGameImport(JSON.stringify(library))");
+ assert.equal(a.run('parsed[0].events[1].substitution.after.pitcher.name'),'救援P');
+ assert.equal(a.run('parsed[0].events[0].play.moves[0].to'),'0');
+ assert.equal(a.run('parsed[0].lineups[0][0].bats'),'左');
+});
+test('別画面で変更された保存内容を古いライブラリで上書きしない',()=>{
+ const a=app({'ina-baseball-v1':JSON.stringify(legacy)});
+ a.context.importText=JSON.stringify(legacy);a.run('var preview=prepareImport(importText,"one.json")');
+ const external=JSON.parse(a.storage.get('ina-baseball-v2'));external.games[0].home='外部更新';a.storage.set('ina-baseball-v2',JSON.stringify(external));
+ assert.throws(()=>a.run('commitImport(preview)'),/再読み込み/);
+ assert.throws(()=>a.run('prepareImport(importText,"one.json")'),/再読み込み/);
+ assert.equal(JSON.parse(a.storage.get('ina-baseball-v2')).games[0].home,'外部更新');
+});
