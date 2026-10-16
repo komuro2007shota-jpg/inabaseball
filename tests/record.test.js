@@ -15,7 +15,7 @@ run("result='アウト'; for(let i=0;i<2;i++) recordPitch()");
 assert.equal(run('state().half'),1);assert.equal(run('state().o'),0);
 run("document.querySelector('#undo').onclick()");assert.equal(run('state().half'),0);assert.equal(run('state().o'),2);
 run("result='本塁打';recordPitch()");assert.equal(run('state().runs[0]'),2);
-assert.equal(JSON.parse(storage.get('ina-baseball-v1')).events.length,9);
+assert.equal(JSON.parse(storage.get('ina-baseball-v2')).games.find(g=>g.id===JSON.parse(storage.get('ina-baseball-v2')).activeId).events.length,9);
 assert.ok(run('analytics()').includes('9<small> 球'));
 assert.ok(run('sheet()').includes('本塁打'));
 console.log('PASS: 四球・三振・攻守交代・取り消し・本塁打・保存・分析・記録票');
