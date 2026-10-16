@@ -79,3 +79,15 @@ run("document.querySelector('#undo').onclick();document.querySelector('#add').on
 assert.equal(run('state().runs[0]'),1);
 assert.ok(run('sheet()').includes('3塁走者：生還'));
 console.log('PASS: 未確定・キャンセル・到達塁修正・同塁防止・併殺・第3アウトの得点判定');
+
+run("data.lineups=emptyLineups()");
+assert.ok(run('validateLineups(data.lineups)').includes('全員'));
+run("data.lineups.forEach((team,h)=>team.forEach((p,i)=>{p.name='選手'+h+i;p.number=String(i+1)}))");
+assert.equal(run('validateLineups(data.lineups)'),'');
+run("data.lineups[0][1].number='1'");
+assert.ok(run('validateLineups(data.lineups)').includes('背番号'));
+run("data.lineups[0][1].number='2';data.lineups[0][0].name='<山田>'");
+assert.ok(run('lineupSheet()').includes('&lt;山田&gt;'));
+assert.equal(run('playerLabel(0,1)'),'1番 <山田>');
+assert.equal(run('playerLabel(1,9)'),'9番 選手18');
+console.log('PASS: スタメン入力検証・背番号重複・両チーム選手名・安全な表示');
