@@ -103,3 +103,31 @@ assert.ok(run('lineupSheet()').includes('<td>投手</td>'));
 assert.ok(run('lineupSheet()').includes('先発投手'));
 assert.equal(run('data.lineups[0].length'),9);
 console.log('PASS: DHと打順外投手・投手未入力・10人の背番号重複・印刷');
+
+// 交代は打順・カウント・走者を変えず、その時点までの選手を復元する
+run("data.events=[];data.dh=[false,false];data.lineups=emptyLineups();data.lineups.forEach((t,h)=>t.forEach((p,i)=>{p.name='先発'+h+i;p.number=String(i+1)}));result='安打';recordPitch();var beforeSub=rosterAt(0);var afterSub=structuredClone(beforeSub);afterSub.players[0]={...afterSub.players[0],name:'代走選手',number:'12'}");
+assert.equal(run('validateSubstitution(beforeSub,afterSub,0)'),'');
+run("data.events.push({substitution:{team:0,before:beforeSub,after:afterSub},result:'代走',half:0,inning:1,batter:2})");
+assert.equal(run('state().batter'),2);
+assert.equal(run('state().bases[0]'),1);
+assert.equal(run('playerLabel(0,1)'),'1番 代走選手');
+assert.equal(run('playerLabel(0,1,0)'),'1番 先発00');
+assert.ok(run('sheet()').includes('1番 先発00'));
+run("var reentry=structuredClone(afterSub);reentry.players[0]=beforeSub.players[0]");
+assert.ok(run('validateSubstitution(afterSub,reentry,0)').includes('再出場'));
+run("data.events.pop()");
+assert.equal(run('playerLabel(0,1)'),'1番 先発00');
+// DHの投手交代と解除
+run("data.events=[];data.dh=[false,true];data.lineups[1][0].position='DH';data.pitchers=[{name:'',number:''},{name:'先発P',number:'10'}];var dhBefore=rosterAt(1);var dhAfter=structuredClone(dhBefore);dhAfter.pitcher={name:'救援P',number:'11'}");
+assert.equal(run('validateSubstitution(dhBefore,dhAfter,1)'),'');
+run("data.events.push({substitution:{team:1,before:dhBefore,after:dhAfter}})");
+assert.equal(run('pitcherFor(1).name'),'救援P');
+assert.equal(run('pitcherFor(1,0).name'),'先発P');
+run("var removed=structuredClone(dhAfter);removed.dh=false;removed.players[0]={...dhAfter.pitcher,position:'投手'}");
+assert.equal(run('validateSubstitution(dhAfter,removed,1)'),'');
+run("data.events.push({substitution:{team:1,before:dhAfter,after:removed}})");
+assert.equal(run('rosterAt(1).dh'),false);
+assert.equal(run('rosterAt(1).players.length'),9);
+assert.equal(run('playerLabel(1,1)'),'1番 救援P');
+assert.ok(run('validateSubstitution(removed,dhAfter,1)').includes('復活'));
+console.log('PASS: 代走の走者引継ぎ・過去名の保持・交代取消・再出場防止・投手履歴・DH解除');
