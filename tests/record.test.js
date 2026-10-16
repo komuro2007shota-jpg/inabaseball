@@ -161,3 +161,14 @@ run("data.events=[]");
 assert.ok(run('analytics()').includes('この条件に一致する投球はありません'));
 assert.ok(!run('analytics()').includes('NaN'));
 console.log('PASS: 選手別・チーム視点・カウント絞込・旧新コース・交代前後・四球・空データ分析');
+
+run("data.events=[];data.lineups[0][0].throws='右';data.lineups[0][0].bats='両'");
+assert.equal(run('handText(data.lineups[0][0])'),'右投・両打');
+assert.equal(run("handText({name:'旧データ'})"),'投不明・打不明');
+assert.ok(run('lineupSheet()').includes('右投・両打'));
+run("var legacyHands=rosterAt(0);var normalizedHands=structuredClone(legacyHands);normalizedHands.players.forEach(p=>{p.throws=p.throws||'';p.bats=p.bats||''})");
+assert.equal(run('rosterFingerprint(legacyHands)'),run('rosterFingerprint(normalizedHands)'));
+run("var updatedHands=structuredClone(legacyHands);updatedHands.players[0].bats='左';data.events.push({substitution:{team:0,before:legacyHands,after:updatedHands}})");
+assert.equal(run('rosterAt(0).players[0].bats'),'左');
+assert.equal(run('rosterAt(0,0).players[0].bats'),'両');
+console.log('PASS: 投打表示・旧データ不明・印刷・未変更判定・交代前後の利き打ち保持');
