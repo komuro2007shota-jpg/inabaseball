@@ -207,3 +207,23 @@ assert.ok(run('sheet()').includes('6-4-3'));
 assert.ok(run('sheet()').includes('score-diamond'));
 assert.ok(run('sheet()').includes('生還・無得点'));
 console.log('PASS: 犠打・犠飛・野選・併殺・打者一巡・進塁紐付け・残塁・守備表記・スコアブック');
+
+// 簡易分析：球順・打席の区切り・途中交代の選手を分離
+run("data.events=[];data.dh=[false,false];data.lineups=emptyLineups();data.lineups.forEach((t,h)=>t.forEach((p,i)=>{p.name='簡易'+h+i;p.number=String(i+1)}));simpleTeam=0;result='ボール';pitch='ストレート';course=12;coursePoint=null;recordPitch();var simpleBefore=rosterAt(0);var simpleAfter=structuredClone(simpleBefore);simpleAfter.players[0]={...simpleAfter.players[0],name:'簡易代打',number:'12'};data.events.push({substitution:{team:0,before:simpleBefore,after:simpleAfter}});result='安打';pitch='スライダー';coursePoint={x:.41,y:.73};point={x:70,y:90};recordPitch()");
+assert.equal(run("simpleAnalysisRows(0).find(r=>r.name==='簡易00').appearances[0].pitches[0].sequence"),1);
+assert.equal(run("simpleAnalysisRows(0).find(r=>r.name==='簡易00').appearances[0].result"),'途中交代');
+assert.equal(run("simpleAnalysisRows(0).find(r=>r.name==='簡易代打').appearances[0].pitches[0].sequence"),2);
+assert.equal(run("simpleAnalysisRows(0).find(r=>r.name==='簡易代打').appearances[0].result"),'安打');
+assert.equal(run("simpleAnalysisRows(0).find(r=>r.name==='簡易代打').appearances[0].pitches[0].point.x"),70);
+assert.equal(run("simpleAnalysisRows(0).find(r=>r.name==='簡易00').appearances[0].pitches[0].location.x"),.5);
+assert.equal(run('simpleAnalysisRows(1).every(r=>r.appearances.length===0)'),true);
+assert.ok(run('simpleAnalysis()').includes('sequence-zone'));
+assert.ok(run('simpleAnalysis()').includes('batted-ball-line'));
+run("data.events=[];result='安打';for(let i=0;i<10;i++)recordPitch()");
+assert.equal(run('simpleAnalysisRows(0)[0].appearances.length'),2);
+assert.equal(run('simpleAnalysisRows(0)[0].appearances[1].pitches[0].sequence'),1);
+console.log('PASS: 簡易分析の打席別球順・途中交代分離・打球・旧コース・打者一巡');
+run("data.events=[];result='安打';for(let i=0;i<37;i++)recordPitch()");
+assert.equal(run('simpleAnalysisRows(0)[0].appearances.length'),5);
+assert.equal(run("(simpleAnalysis().match(/class=\"simple-page\"/g)||[]).length"),2);
+console.log('PASS: 第5打席以降も4打席単位で欠落なく表示');
