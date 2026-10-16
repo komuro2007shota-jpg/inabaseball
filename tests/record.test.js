@@ -237,3 +237,23 @@ run('data.events=[]');
 assert.ok(run('simpleAnalysis()').includes('打席記録はまだありません'));
 assert.ok(!run('simpleAnalysis()').includes('class="simple-table"'));
 console.log('PASS: 記録済み打席・打者のみ表示、未記録チームの空表示');
+
+// 過去投球の修正：結果・走者を保ち、分析とスコアブックへ反映
+run("data.events=[];result='安打';pitch='ストレート';point={x:80,y:90};recordPitch();result='ボール';recordPitch();var stateBeforeEdit=JSON.stringify(state());var playBeforeEdit=JSON.stringify(data.events[0].play);var laterPitchBeforeEdit=JSON.stringify(data.events[1]);startPitchEdit(0);editingPitch.draft.pitch='カーブ';editingPitch.draft.course=18;editingPitch.draft.coursePoint={x:.71,y:.68};editingPitch.draft.point={x:210,y:70};editingPitch.draft.kind='フライ';editingPitch.draft.defense='右前安打';document.querySelector('#edit-pitch-form').onsubmit({preventDefault(){}})");
+assert.equal(run('editingPitch'),null);
+assert.equal(run('JSON.stringify(state())'),run('stateBeforeEdit'));
+assert.equal(run('JSON.stringify(data.events[0].play)'),run('playBeforeEdit'));
+assert.equal(run('JSON.stringify(data.events[1])'),run('laterPitchBeforeEdit'));
+assert.equal(run('data.events[0].result'),'安打');
+assert.equal(run('analysisRows()[0].pitch'),'カーブ');
+assert.equal(run('simpleAnalysisRows(0)[0].appearances[0].pitches[0].point.x'),210);
+assert.equal(run('scorebookEntries()[0][0].defense'),'右前安打');
+run("var eventBeforeCancel=JSON.stringify(data.events[0]);startPitchEdit(0);editingPitch.draft.pitch='フォーク';document.querySelector('#cancel-pitch-edit').onclick()");
+assert.equal(run('JSON.stringify(data.events[0])'),run('eventBeforeCancel'));
+run("startPitchEdit(0);editingPitch.draft.result='本塁打';editingPitch.draft.play={};document.querySelector('#edit-pitch-form').onsubmit({preventDefault(){}})");
+assert.equal(run('data.events[0].result'),'安打');
+assert.equal(run('JSON.stringify(data.events[0].play)'),run('playBeforeEdit'));
+run("startPitchEdit(0);data.events[0].pitch='その他';document.querySelector('#edit-pitch-form').onsubmit({preventDefault(){}})");
+assert.ok(run("document.querySelector('#edit-error').textContent").includes('元の記録が変わりました'));
+run('editingPitch=null');
+console.log('PASS: 過去投球修正・状態維持・後続記録保持・分析反映・キャンセル・競合防止');
